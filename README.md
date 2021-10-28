@@ -9,6 +9,6 @@
 
 ## IMPORT DATABASE DUMP
 ---
-1. Create db 
+1. Create db\ 
 sudo -u postgres createdb `db name`
 2. psql -d `db name` -f `file path`
