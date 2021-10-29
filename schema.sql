@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS departments, employees, eContacts, health_declaration, junior, booker, senior, manager, sessions, session_part, mr_update;
+
+
 CREATE TABLE departments (
    did integer PRIMARY KEY,
    dname VARCHAR(255)
@@ -29,7 +32,7 @@ CREATE TABLE eContacts (
    eid integer,
    contact integer,
    PRIMARY KEY (eid, contact),
-   FOREIGN KEY (eid) REFERENCES employees (eid)
+   FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
 );
 
 CREATE TABLE health_declaration (
@@ -77,7 +80,7 @@ CREATE TABLE sessions (
    -- deletes meeting session when booker no longer authorized
    FOREIGN KEY (book_id) REFERENCES booker (eid) ON DELETE CASCADE,
    -- manager approves sessions
-   FOREIGN KEY (approve_id) REFERENCES manager (eid)
+   FOREIGN KEY (approve_id) REFERENCES manager (eid) ON DELETE CASCADE
 
 );
 
@@ -95,7 +98,7 @@ CREATE TABLE session_part (
    FOREIGN KEY (eid) REFERENCES employees (eid)
 );
 
-CREATE TABLE update (
+CREATE TABLE mr_update (
    eid integer NOT NULL,
    udate DATE,
    new_cap integer,
@@ -105,4 +108,3 @@ CREATE TABLE update (
    FOREIGN KEY (room, floor) REFERENCES meetingRooms (room, floor) ON DELETE CASCADE,
    FOREIGN KEY (eid) REFERENCES manager (eid)
 );
-
