@@ -1,9 +1,9 @@
-DROP TABLE IF EXISTS departments, employees, eContacts, health_declaration, junior, booker, senior, manager, sessions, session_part, mr_update;
+DROP TABLE IF EXISTS departments, meetingRooms, employees, eContacts, health_declaration, junior, booker, senior, manager, sessions, session_part, mr_update CASCADE;
 
 
 CREATE TABLE departments (
    did integer PRIMARY KEY,
-   dname VARCHAR(255)
+   dname VARCHAR(255) UNIQUE
 );
 
 CREATE TABLE meetingRooms (
@@ -14,7 +14,7 @@ CREATE TABLE meetingRooms (
 	rname VARCHAR(255),
 	PRIMARY KEY (room,floor),
    -- located in department
-   FOREIGN KEY (did) REFERENCES departments (did)
+   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
 );
 
 CREATE TABLE employees (
@@ -24,8 +24,9 @@ CREATE TABLE employees (
    resigned_date DATE,
    -- participation constraint
    did integer NOT NULL,
+   kind integer NOT NULL check(kind >= 0 AND kind <= 2),
    -- works in department
-   FOREIGN KEY (did) REFERENCES departments (did)
+   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
 );
 -- multivalue attribute of employees 
 CREATE TABLE eContacts (
