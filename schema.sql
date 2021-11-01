@@ -14,36 +14,36 @@ CREATE TABLE meetingRooms (
 	rname VARCHAR(255),
 	PRIMARY KEY (room,floor),
    -- located in department
-   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
+   FOREIGN KEY (did) REFERENCES departments (did) ON DELETE CASCADE
 );
 
 CREATE TABLE employees (
-   eid integer PRIMARY KEY,
+   eid BIGSERIAL PRIMARY KEY,
    ename VARCHAR(255),
    email VARCHAR(255) UNIQUE,
-   resigned_date DATE,
+   resigned_date DATE DEFAULT NULL,
    -- participation constraint
    did integer NOT NULL,
    kind integer NOT NULL check(kind >= 0 AND kind <= 2),
    -- works in department
-   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
+   FOREIGN KEY (did) REFERENCES departments (did) ON DELETE CASCADE
 );
 -- multivalue attribute of employees 
 CREATE TABLE eContacts (
    eid integer,
-   contact integer,
+   contact integer NOT NULL,
    PRIMARY KEY (eid, contact),
    FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
 );
 
 CREATE TABLE health_declaration (
    eid integer,
-   ddate DATE,
-   temp float8,
+   ddate DATE DEFAULT CURRENT_DATE,
+   temp float8 NOT NULL,
    fever BOOLEAN NOT NULL,
    PRIMARY KEY(eid, ddate),
    -- Weak entity
-   FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
+   FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
 );
 
 -- ISA employee
@@ -96,7 +96,7 @@ CREATE TABLE session_part (
 
    PRIMARY KEY (stime, sdate, room, floor, eid),
    FOREIGN KEY (stime, sdate, room, floor) REFERENCES sessions (stime, sdate, room, floor) ON DELETE CASCADE,
-   FOREIGN KEY (eid) REFERENCES employees (eid)
+   FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
 );
 
 CREATE TABLE mr_update (
@@ -107,5 +107,5 @@ CREATE TABLE mr_update (
    floor integer,
    PRIMARY KEY (udate, room, floor),
    FOREIGN KEY (room, floor) REFERENCES meetingRooms (room, floor) ON DELETE CASCADE,
-   FOREIGN KEY (eid) REFERENCES manager (eid)
+   FOREIGN KEY (eid) REFERENCES manager (eid) ON UPDATE CASCADE
 );
