@@ -71,6 +71,7 @@ CREATE TABLE sessions (
    -- participation constraint
    book_id integer NOT NULL,
    stime TIME,
+   etime TIME,
    sdate TIME,
    room integer,
    floor integer,
