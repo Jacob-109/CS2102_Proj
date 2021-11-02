@@ -9,7 +9,7 @@ CREATE TABLE departments (
 CREATE TABLE meetingRooms (
 	room integer,
 	floor integer,
-   -- participation constraint
+   -- If did, null meeting room does not exist
    did integer,
 	rname VARCHAR(255),
 	PRIMARY KEY (room,floor),
@@ -23,7 +23,7 @@ CREATE TABLE employees (
    email VARCHAR(255) UNIQUE,
    resigned_date DATE DEFAULT NULL,
    -- participation constraint
-   did integer NOT NULL,
+   did integer,
    kind integer NOT NULL check(kind >= 0 AND kind <= 2),
    -- works in department
    FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
@@ -71,9 +71,10 @@ CREATE TABLE sessions (
    -- participation constraint
    book_id integer NOT NULL,
    stime TIME,
-   sdate TIME,
+   sdate DATE,
    room integer,
    floor integer,
+   curr_cap integer,
    approve_id integer,
 
    PRIMARY KEY (stime, sdate, room, floor),
@@ -81,14 +82,14 @@ CREATE TABLE sessions (
    -- deletes meeting session when booker no longer authorized
    FOREIGN KEY (book_id) REFERENCES employees (eid) ON UPDATE CASCADE,
    -- manager approves sessions
-   FOREIGN KEY (approve_id) REFERENCES manager (eid) ON UPDATE CASCADE
+   FOREIGN KEY (approve_id) REFERENCES employees (eid) ON UPDATE CASCADE
 
 );
 
 -- join relation between employees and sessions
 CREATE TABLE session_part (
    stime TIME,
-   sdate TIME,
+   sdate DATE,
    room integer,
    floor integer,
    -- join participation constraint
