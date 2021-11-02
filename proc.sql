@@ -14,35 +14,80 @@ CREATE TRIGGER resigning_employee
 BEFORE UPDATE ON employees
 -- RESIGNED DATE IS NOT NULL IMPLIES RESIGNATION
 FOR EACH ROW WHEN (NEW.resigned_date IS NOT NULL)
-CALL leave_future (NEW.resigned_date, NEW.eid);
+EXECUTE FUNCTION handle_leave_future();
 
-CREATE OR REPLACE PROCEDURE leave_future
-	(r_date DATE,
-	id integer)
+-- LEAVES FUTURE COMMITMENTS
+CREATE OR REPLACE FUNCTION handle_leave_future ()
+RETURNS TRIGGER
 AS $$
 BEGIN
-	-- DELETES ALL SESSIONS BOOKED BY R EMPLOYEE AFTER R DATE
-	DELETE * FROM sessions WHERE book_id = id AND sdate > r_date;
+	-- DELETE ALL SESSIONS BOOKED 
+	DELETE FROM sessions s WHERE s.book_id = NEW.id AND s.sdate >= NEW.r_date;
+	-- DELETE ALL SESSION PART AFTER R_DATE
+	UPDATE sessions
+	SET cap = OLD.cap - 1
+	FROM sessions s, session_part sp 
+	WHERE (sp.eid = NEW.id AND
+			s.stime = sp.stime AND
+			s.sdate = sp.sdate AND
+			s.room = sp.room AND
+			s.floor = sp.floor AND
+			s.sdate >= NEW.r_date);
+	
+	DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date; 
 	RETURN NULL;
 END;
 $$
 LANGUAGE plpgsql;
 
+
+-- -- DELETES ALL SESSIONS BOOKED BY R EMPLOYEE AFTER R DATE
+-- CREATE OR REPLACE PROCEDURE delete_future_booker
+-- 	(id integer,
+-- 	r_date DATE)
+-- AS $$
+-- BEGIN
+-- 	DELETE * FROM sessions WHERE book_id = id AND sdate > r_date;
+-- END;
+-- $$
+-- LANGUAGE plpgsql;
+
+-- -- DELETES ALL FUTURE PARTICIPATION BY R EMPLOYEE AFTER R DATE
+-- CREATE OR REPLACE PROCEDURE leave_future_part
+-- 	(id integer,
+-- 	r_date DATE)
+-- AS $$
+-- BEGIN
+-- 	DELETE * FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= r_date; 
+-- END;
+-- $$
+-- LANGUAGE plpgsql;
+
+
+
 -- TRIGGER FOR DELETING DEPARTMENT
-DROP TRIGGER IF EXISTS del_dep ON departments;
-CREATE TRIGGER del_dep
-BEFORE DELETE ON employees
+DROP TRIGGER IF EXISTS del_dep_trig ON departments;
+CREATE TRIGGER del_dep_trig
+BEFORE DELETE ON departments
 FOR EACH ROW
-EXECUTE FUNTION del_dep(OLD.did)
+EXECUTE FUNCTION del_dep();
+
 -- SETS meetingRooms did to null to indicate deleted
-CREATE OR REPLACE FUNCTION del_dep
-	(id integer)
+CREATE OR REPLACE FUNCTION del_dep()
 RETURNS TRIGGER
 AS $$
 BEGIN
 	UPDATE meetingRooms
-	SET did = null
-	WHERE did = id;
+	SET did = NULL
+	WHERE did = OLD.did;
+
+	-- Resign employee
+	UPDATE employees e 
+	SET e.resigned_date = CURRENT_DATE, 
+		e.did = NULL
+	WHERE e.did = OLD.did;
+
+
 	RETURN NULL;
 END;
 $$
@@ -62,25 +107,14 @@ BEGIN
 	IF NEW.temp > 37.5
 	THEN 
 		NEW.fever := TRUE;
-
-		CALL fever_management(NEW.eid, NEW.ddate);
+		DELETE FROM sessions s WHERE s.book_id = NEW.id AND s.sdate >= NEW.r_date;
+		DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date; 
 	ELSE
 		NEW.fever := FALSE;
 	END IF;
 
 	RETURN NEW;
 END;
-$$
-LANGUAGE plpgsql;
-
--- Remove from future meetings, delete hosted meetings
-CREATE OR REPLACE PROCEDURE fever_management
-	(id integer,
-	d_date integer)
-AS $$
-BEGIN
-	
-END
 $$
 LANGUAGE plpgsql;
 
@@ -101,13 +135,7 @@ CREATE OR REPLACE PROCEDURE remove_department
 	(did integer)
 AS $$
 BEGIN
-	-- Resign employee
-	UPDATE employees e 
-	SET e.resigned_date = CURRENT_DATE, 
-		e.did = NULL
-	WHERE e.did = did;
-
-	DELETE * FROM departments d WHERE d.did = did;
+	DELETE FROM departments d WHERE d.did = did;
 END;
 $$
 LANGUAGE plpgsql;
@@ -151,34 +179,7 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
-
--- DROP TRIGGER IF EXISTS employee_added ON employees;
--- CREATE TRIGGER employee_added
--- AFTER INSERT ON employees
--- FOR EACH ROW EXECUTE FUNCTION assign_employee_role();
-
--- CREATE OR REPLACE FUNCTION assign_employee_role()
--- RETURNS TRIGGER
--- AS $$
--- BEGIN
--- 	IF NEW.kind = 0 
--- 	THEN	
--- 		INSERT INTO junior VALUES (NEW.eid);
--- 	ELSEIF NEW.kind = 1 
--- 	THEN	
--- 		INSERT INTO booker VALUES (NEW.eid);
--- 		INSERT INTO senior VALUES (NEW.eid);
--- 	ELSEIF NEW.kind = 2
--- 	THEN	
--- 		INSERT INTO booker VALUES (NEW.eid);
--- 		INSERT INTO manager VALUES (NEW.eid);
--- 	END IF;
--- 	RETURN NULL;
--- END;
--- $$
--- LANGUAGE plpgsql;
 	
-
 
 -- date YYYY-MM-DD
 CREATE OR REPLACE PROCEDURE remove_employee
@@ -186,6 +187,7 @@ CREATE OR REPLACE PROCEDURE remove_employee
 	r_date DATE)
 AS $$
 BEGIN
+	-- Set resign_date triggers resigning_employee;
 	UPDATE employees
 	SET resigned_date = r_date
 	WHERE eid = id;
