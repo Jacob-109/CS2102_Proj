@@ -72,9 +72,11 @@ CREATE TABLE sessions (
    book_id integer NOT NULL,
    stime TIME,
    etime TIME,
-   sdate TIME,
+   sdate DATE,
    room integer,
    floor integer,
+   capacity integer,
+   max_capacity integer,
    approve_id integer,
 
    PRIMARY KEY (stime, sdate, room, floor),
@@ -89,7 +91,7 @@ CREATE TABLE sessions (
 -- join relation between employees and sessions
 CREATE TABLE session_part (
    stime TIME,
-   sdate TIME,
+   sdate DATE,
    room integer,
    floor integer,
    -- join participation constraint
