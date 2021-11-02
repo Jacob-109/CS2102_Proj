@@ -10,11 +10,11 @@ CREATE TABLE meetingRooms (
 	room integer,
 	floor integer,
    -- participation constraint
-   did integer NOT NULL,
+   did integer,
 	rname VARCHAR(255),
 	PRIMARY KEY (room,floor),
    -- located in department
-   FOREIGN KEY (did) REFERENCES departments (did) ON DELETE CASCADE
+   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
 );
 
 CREATE TABLE employees (
@@ -26,7 +26,7 @@ CREATE TABLE employees (
    did integer NOT NULL,
    kind integer NOT NULL check(kind >= 0 AND kind <= 2),
    -- works in department
-   FOREIGN KEY (did) REFERENCES departments (did) ON DELETE CASCADE
+   FOREIGN KEY (did) REFERENCES departments (did) ON UPDATE CASCADE
 );
 -- multivalue attribute of employees 
 CREATE TABLE eContacts (
@@ -46,26 +46,26 @@ CREATE TABLE health_declaration (
    FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
 );
 
--- ISA employee
-CREATE TABLE junior (
-   eid integer PRIMARY KEY,
-   FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
-);
--- ISA employee
-CREATE TABLE booker (
-   eid integer PRIMARY KEY,
-   FOREIGN KEY (eid) REFERENCES employees(eid) ON DELETE CASCADE
-);
--- ISA booker
-CREATE TABLE senior (
-   eid integer PRIMARY KEY,
-   FOREIGN KEY (eid) REFERENCES booker(eid) ON DELETE CASCADE
-);
--- ISA booker
-CREATE TABLE manager (
-   eid integer PRIMARY KEY,
-   FOREIGN KEY (eid) REFERENCES booker(eid) ON DELETE CASCADE
-);
+-- -- ISA employee
+-- CREATE TABLE junior (
+--    eid integer PRIMARY KEY,
+--    FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
+-- );
+-- -- ISA employee
+-- CREATE TABLE booker (
+--    eid integer PRIMARY KEY,
+--    FOREIGN KEY (eid) REFERENCES employees(eid) ON DELETE CASCADE
+-- );
+-- -- ISA booker
+-- CREATE TABLE senior (
+--    eid integer PRIMARY KEY,
+--    FOREIGN KEY (eid) REFERENCES booker(eid) ON DELETE CASCADE
+-- );
+-- -- ISA booker
+-- CREATE TABLE manager (
+--    eid integer PRIMARY KEY,
+--    FOREIGN KEY (eid) REFERENCES booker(eid) ON DELETE CASCADE
+-- );
 
 CREATE TABLE sessions (
    -- participation constraint
@@ -77,11 +77,11 @@ CREATE TABLE sessions (
    approve_id integer,
 
    PRIMARY KEY (stime, sdate, room, floor),
-   FOREIGN KEY (room, floor) REFERENCES meetingRooms (room, floor) ON DELETE CASCADE,
+   FOREIGN KEY (room, floor) REFERENCES meetingRooms (room, floor) ON UPDATE CASCADE,
    -- deletes meeting session when booker no longer authorized
-   FOREIGN KEY (book_id) REFERENCES booker (eid) ON DELETE CASCADE,
+   FOREIGN KEY (book_id) REFERENCES employees (eid) ON UPDATE CASCADE,
    -- manager approves sessions
-   FOREIGN KEY (approve_id) REFERENCES manager (eid) ON DELETE CASCADE
+   FOREIGN KEY (approve_id) REFERENCES manager (eid) ON UPDATE CASCADE
 
 );
 
@@ -96,7 +96,7 @@ CREATE TABLE session_part (
 
    PRIMARY KEY (stime, sdate, room, floor, eid),
    FOREIGN KEY (stime, sdate, room, floor) REFERENCES sessions (stime, sdate, room, floor) ON DELETE CASCADE,
-   FOREIGN KEY (eid) REFERENCES employees (eid) ON DELETE CASCADE
+   FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
 );
 
 CREATE TABLE mr_update (
@@ -107,5 +107,14 @@ CREATE TABLE mr_update (
    floor integer,
    PRIMARY KEY (udate, room, floor),
    FOREIGN KEY (room, floor) REFERENCES meetingRooms (room, floor) ON DELETE CASCADE,
-   FOREIGN KEY (eid) REFERENCES manager (eid) ON UPDATE CASCADE
+   FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
 );
+
+-- CREATE TABLE deleted_past_part (
+--    eid integer NOT NULL PRIMARY KEY,
+--    stime integer NOT NULL,
+--    room integer NOT NULL,
+--    floor integer NOT NULL,
+--    PRIMARY KEY (eid, stime, room, floor),
+--    FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
+-- );
