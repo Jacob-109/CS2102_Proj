@@ -22,20 +22,20 @@ RETURNS TRIGGER
 AS $$
 BEGIN
 	-- DELETE ALL SESSIONS BOOKED 
-	DELETE FROM sessions s WHERE s.book_id = NEW.id AND s.sdate >= NEW.r_date;
+	DELETE FROM sessions s WHERE s.book_id = NEW.eid AND s.sdate >= NEW.resigned_date;
 	-- DELETE ALL SESSION PART AFTER R_DATE
-	UPDATE sessions
-	SET cap = OLD.cap - 1
-	FROM sessions s, session_part sp 
-	WHERE sp.eid = NEW.id
-	AND s.stime = sp.stime
-	AND s.sdate = sp.sdate
-	AND s.room = sp.room
-	AND s.floor = sp.floor
-	AND s.sdate >= NEW.r_date;
+	-- UPDATE sessions
+	-- SET curr_cap = curr_cap - 1
+	-- FROM sessions s, session_part sp 
+	-- WHERE sp.eid = NEW.eid
+	-- AND s.stime = sp.stime
+	-- AND s.sdate = sp.sdate
+	-- AND s.room = sp.room
+	-- AND s.floor = sp.floor
+	-- AND s.sdate >= NEW.resigned_date;
 	
-	DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date; 
-	RETURN NULL;
+	DELETE FROM session_part sp WHERE sp.eid = NEW.eid AND sp.sdate >= NEW.resigned_date; 
+	RETURN NEW;
 END;
 $$
 LANGUAGE plpgsql;
@@ -59,13 +59,13 @@ BEGIN
 	WHERE did = OLD.did;
 
 	-- Resign employee
-	UPDATE employees e 
-	SET e.resigned_date = CURRENT_DATE, 
-		e.did = NULL
-	WHERE e.did = OLD.did;
+	UPDATE employees 
+	SET resigned_date = CURRENT_DATE, 
+		did = NULL
+	WHERE did = OLD.did;
 
 
-	RETURN NULL;
+	RETURN OLD;
 END;
 $$
 LANGUAGE plpgsql;
@@ -84,8 +84,8 @@ BEGIN
 	IF NEW.temp > 37.5
 	THEN 
 		NEW.fever := TRUE;
-		DELETE FROM sessions s WHERE s.book_id = NEW.id AND s.sdate >= NEW.r_date;
-		DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date;
+		DELETE FROM sessions s WHERE s.book_id = NEW.eid AND s.sdate >= NEW.ddate;
+		DELETE FROM session_part sp WHERE sp.eid = NEW.eid AND sp.sdate >= NEW.ddate;
 		EXECUTE contact_tracing(NEW.eid); 
 	ELSE
 		NEW.fever := FALSE;
@@ -109,32 +109,35 @@ $$
 LANGUAGE plpgsql;
 
 -- requires existing department to replace
+DROP PROCEDURE remove_department(integer);
 CREATE OR REPLACE PROCEDURE remove_department
-	(did integer)
+	(id integer)
 AS $$
 BEGIN
-	DELETE FROM departments d WHERE d.did = did;
+	DELETE FROM departments d WHERE d.did = id;
 END;
 $$
 LANGUAGE plpgsql;
 
 
-
+DROP PROCEDURE add_room;
 CREATE OR REPLACE PROCEDURE add_room
 	(floor integer,
 	room integer,
 	rname VARCHAR(255),
 	cap integer,
-	did integer,
+	d_id integer,
 	udate DATE,
-	eid integer)
+	e_id integer)
 AS $$
 BEGIN
-	IF EXISTS(SELECT 1 FROM manager m, employee e 
-		WHERE m.eid = eid AND e.eid = eid AND e.did = did)
+	IF EXISTS(SELECT 1 FROM employees e 
+		WHERE e.eid = e_id AND e.kind = 2 AND e.did = d_id)
 		THEN
-			INSERT INTO meetingRooms VALUES (room, floor, did, rname);
-			INSERT INTO mr_update VALUES (eid, udate, cap, room, floor);
+			INSERT INTO meetingRooms VALUES (room, floor, d_id, rname);
+			INSERT INTO mr_update VALUES (e_id, udate, cap, room, floor);
+	ELSE
+		RAISE NOTICE 'Unauthorized to add room';
 	END IF;
 END;
 $$
@@ -230,7 +233,7 @@ BEGIN
 
 	-- Remove meetings participating
 	UPDATE sessions
-	SET cap = OLD.cap - 1
+	SET curr_cap = curr_cap - 1
 	FROM sessions s, session_part sp, closeContact cc
 	WHERE sp.eid = cc.eid
 	AND s.stime = sp.stime

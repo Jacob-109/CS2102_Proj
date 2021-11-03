@@ -18,7 +18,7 @@ CREATE TABLE meetingRooms (
 );
 
 CREATE TABLE employees (
-   eid BIGSERIAL PRIMARY KEY,
+   eid serial PRIMARY KEY,
    ename VARCHAR(255),
    email VARCHAR(255) UNIQUE,
    resigned_date DATE DEFAULT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE health_declaration (
    eid integer,
    ddate DATE NOT NULL DEFAULT CURRENT_DATE check (ddate >= CURRENT_DATE),
    temp float8 NOT NULL check (temp >= 34 AND temp <= 43),
-   fever integer NOT NULL,
+   fever boolean NOT NULL,
    PRIMARY KEY(eid, ddate),
    -- Weak entity
    FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
