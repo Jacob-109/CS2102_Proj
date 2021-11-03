@@ -217,26 +217,6 @@ SELECT EXISTS(SELECT 1 from health_declaration c WHERE c.eid = 2 AND c.ddate = C
 
 
 
-
-SELECT * 
-from health_declaration c
-WHERE c.eid = 2
-AND c.ddate = CURRENT_DATE;
-
-IF EXISTS(select 1 from employees where eid=1) THEN
-	RAISE NOTICE 'FKLA ' 
-END IF;
-
-
-DO
-$do$
-BEGIN
-   IF EXISTS(select 1 from employees where eid=1) THEN
-	RAISE NOTICE 'FKLA ' 
-END IF;
-END
-$do$
-
 SELECT * FROM sessions;
 
 
