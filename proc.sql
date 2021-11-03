@@ -115,6 +115,8 @@ END;
 $$
 LANGUAGE plpgsql;
 
+
+
 /**
  * Core Functionalities
  */
@@ -221,6 +223,7 @@ BEGIN
 
 	WHILE (tempTime < endTime) LOOP
 		INSERT INTO sessions (book_id , stime, sdate, room, floor, curr_cap, approve_id) values (booker_eid,tempTime,booking_date,room_num,floor_num,0,NULL);  
+		INSERT INTO session_part (stime, sdate, room, floor, eid) VALUES (tempTime, booking_date, room_num, floor_num, booker_eid);
 		tempTime := tempTime + interval '1' hour;
 	END LOOP;		
 
@@ -232,6 +235,8 @@ LANGUAGE plpgsql;
 CALL book_room(1,2,'2021-10-03','08:00:00','13:00:00' , 1);
 
 SELECT * from sessions;
+
+SELECT * from session_part;
 
 DELETE FROM sessions 
 WHERE sdate = '2021-10-03';
