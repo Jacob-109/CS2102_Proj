@@ -49,52 +49,45 @@ CREATE OR REPLACE FUNCTION add_room
 	room integer,
 	rname VARCHAR(255),
 	cap integer,
-	did integer,
+	d_id integer,
 	udate DATE,
-	eid integer)
-RETURN 
+	e_id integer)
+RETURNS VOID
 AS $$
 BEGIN
-	IF EXISTS(SELECT 1 FROM manager m, departments d WHERE m.eid = eid AND d.did = did)
+	IF EXISTS(SELECT 1 FROM employees e 
+		WHERE e.eid = e_id AND e.kind = 2 AND e.did = d_id)
 		THEN
-			INSERT INTO meetingRooms VALUES (room, floor, did, rname);
-			INSERT INTO mr_update VALUES (eid, udate, cap, room, floor);
+			INSERT INTO meetingRooms VALUES (room, floor, d_id, rname);
+			INSERT INTO mr_update VALUES (e_id, udate, cap, room, floor);
+	ELSE
+		RAISE NOTICE 'Unauthorized to add room';
 	END IF;
 END;
 $$
 LANGUAGE plpgsql;
 
+SELECT * from meetingRooms;
+
 SELECT add_room(100,100,'Heaven', 50, 2, '2021-11-01', 2);
 
 CREATE OR REPLACE PROCEDURE add_employee
-	(eid integer,
-	ename VARCHAR(255),
+	(ename VARCHAR(255),
 	email VARCHAR(255),
 	did integer,
 	kind integer,
 	contact integer)
 AS $$
+DECLARE
+	id integer := 0; 
 BEGIN
-	-- IF kind >= 0 AND kind <= 3
-	-- 	THEN
-			INSERT INTO employees VALUES (eid, ename, email, NULL, did, kind);
-			INSERT INTO eContacts VALUES (eid, contact);
-			-- IF kind = 0 
-			-- THEN	
-			-- 	INSERT INTO junior VALUES (eid);
-			-- ELSEIF kind = 1 
-			-- THEN	
-			-- 	INSERT INTO booker VALUES (eid);
-			-- 	INSERT INTO senior VALUES (eid);
-			-- ELSEIF kind = 2
-			-- THEN	
-			-- 	INSERT INTO booker VALUES (eid);
-			-- 	INSERT INTO manager VALUES (eid);
-			-- END IF;
-	-- END IF;
+	INSERT INTO employees (ename, email, did, kind) VALUES (ename, email, did, kind);
+	SELECT LASTVAL() INTO id;
+	INSERT INTO eContacts VALUES (id, contact);
 END;
 $$
 LANGUAGE plpgsql;
+	
 
 -- date YYYY-MM-DD
 CREATE OR REPLACE PROCEDURE remove_employee
@@ -102,15 +95,91 @@ CREATE OR REPLACE PROCEDURE remove_employee
 	r_date DATE)
 AS $$
 BEGIN
+	-- Set resign_date triggers resigning_employee;
 	UPDATE employees
 	SET resigned_date = r_date
 	WHERE eid = id;
+END;
+$$
+LANGUAGE plpgsql;
 
-	-- DELETE FROM sessions
-	-- WHERE book_id = id AND sdate >= r_date;
+
+CREATE OR REPLACE PROCEDURE declare_health
+	(id integer,
+	d_date DATE,
+	temp float8)
+AS $$
+BEGIN
+	INSERT INTO health_declaration VALUES (id, d_date, temp);
+END;
+$$
+LANGUAGE plpgsql;
+
+
+-- CREATE OR REPLACE PROCEDURE leave_next_7
+-- 	(id integer,
+-- 	s_date DATE)
+-- AS $$
+-- BEGIN
+-- 	DELETE FROM sessions s WHERE (s.book_id = id AND s.sdate >= s_date AND s.sdate <= s_date + 7);
+
+-- 	UPDATE sessions
+-- 	SET cap = OLD.cap - 1
+-- 	FROM sessions s, session_part sp 
+-- 	WHERE sp.eid = id
+-- 	AND s.stime = sp.stime
+-- 	AND s.sdate = sp.sdate
+-- 	AND s.room = sp.room
+-- 	AND s.floor = sp.floor
+-- 	AND s.sdate >= s_date
+-- 	AND s.sdate <= s_date + 7;
 	
-	-- DELETE FROM session_part
-	-- WHERE book_id = id AND sdate >= r_date;
+-- 	DELETE FROM session_part sp WHERE (sp.eid = id AND sp.sdate >= s_date AND sp.sdate <= s_date + 7); 
+-- END;
+-- $$ 
+-- LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION contact_tracing 
+	(id integer)
+RETURNS TABLE (Eid integer)
+AS $$
+BEGIN
+	WITH closeContact AS
+		(SELECT DISTINCT sp2.eid AS eid
+		FROM session_part sp, session_part sp2
+		WHERE sp.eid = id
+		AND sp2.eid <> id
+		AND sp2.stime = sp.stime
+		AND sp2.sdate = sp.sdate
+		AND sp2.room = sp.room
+		AND sp2.floor = sp.floor
+		AND sp.sdate > CURRENT_DATE -3)
+
+	-- Delete meetings which were booked
+	DELETE FROM sessions s WHERE (s.book_id = closeContact.id AND s.sdate >= s_date AND s.sdate <= s_date + 7);
+
+	-- Remove meetings participating
+	UPDATE sessions
+	SET curr_cap = curr_cap - 1
+	FROM sessions s, session_part sp, closeContact cc
+	WHERE sp.eid = cc.eid
+	AND s.stime = sp.stime
+	AND s.sdate = sp.sdate
+	AND s.room = sp.room
+	AND s.floor = sp.floor
+	AND s.sdate >= CURRENT_DATE
+	AND s.sdate <= CURRENT_DATE + 7;
+	
+	DELETE FROM session_part sp WHERE (sp.eid = id AND sp.sdate >= s_date AND sp.sdate <= s_date + 7); 
+	
+	-- add to quarantine
+	UPDATE employees SET qe_date = CURRENT_DATE + 7 FROM closeContact cc, employees e WHERE cc.eid = e.eid;
+	UPDATE employees SET qe_date = CURRENT_DATE + 7 FROM employees e WHERE id = e.eid;
+
+
+
+	RETURN QUERY SELECT cc.eid FROM closeContact;
+	
 END;
 $$
 LANGUAGE plpgsql;
@@ -222,7 +291,7 @@ BEGIN
 	END IF;
 
 	WHILE (tempTime < endTime) LOOP
-		INSERT INTO sessions (book_id , stime, sdate, room, floor, curr_cap, approve_id) values (booker_eid,tempTime,booking_date,room_num,floor_num,0,NULL);  
+		INSERT INTO sessions (book_id , stime, sdate, room, floor, curr_cap, approve_id) values (booker_eid,tempTime,booking_date,room_num,floor_num,1,NULL);  
 		INSERT INTO session_part (stime, sdate, room, floor, eid) VALUES (tempTime, booking_date, room_num, floor_num, booker_eid);
 		tempTime := tempTime + interval '1' hour;
 	END LOOP;		
