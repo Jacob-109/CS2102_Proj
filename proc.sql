@@ -27,41 +27,18 @@ BEGIN
 	UPDATE sessions
 	SET cap = OLD.cap - 1
 	FROM sessions s, session_part sp 
-	WHERE (sp.eid = NEW.id AND
-			s.stime = sp.stime AND
-			s.sdate = sp.sdate AND
-			s.room = sp.room AND
-			s.floor = sp.floor AND
-			s.sdate >= NEW.r_date);
+	WHERE sp.eid = NEW.id
+	AND s.stime = sp.stime
+	AND s.sdate = sp.sdate
+	AND s.room = sp.room
+	AND s.floor = sp.floor
+	AND s.sdate >= NEW.r_date;
 	
 	DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date; 
 	RETURN NULL;
 END;
 $$
 LANGUAGE plpgsql;
-
-
--- -- DELETES ALL SESSIONS BOOKED BY R EMPLOYEE AFTER R DATE
--- CREATE OR REPLACE PROCEDURE delete_future_booker
--- 	(id integer,
--- 	r_date DATE)
--- AS $$
--- BEGIN
--- 	DELETE * FROM sessions WHERE book_id = id AND sdate > r_date;
--- END;
--- $$
--- LANGUAGE plpgsql;
-
--- -- DELETES ALL FUTURE PARTICIPATION BY R EMPLOYEE AFTER R DATE
--- CREATE OR REPLACE PROCEDURE leave_future_part
--- 	(id integer,
--- 	r_date DATE)
--- AS $$
--- BEGIN
--- 	DELETE * FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= r_date; 
--- END;
--- $$
--- LANGUAGE plpgsql;
 
 
 
@@ -108,7 +85,8 @@ BEGIN
 	THEN 
 		NEW.fever := TRUE;
 		DELETE FROM sessions s WHERE s.book_id = NEW.id AND s.sdate >= NEW.r_date;
-		DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date; 
+		DELETE FROM session_part sp WHERE sp.eid = NEW.id AND sp.sdate >= NEW.r_date;
+		EXECUTE contact_tracing(NEW.eid); 
 	ELSE
 		NEW.fever := FALSE;
 	END IF;
@@ -207,3 +185,71 @@ END;
 $$
 LANGUAGE plpgsql;
 
+
+-- CREATE OR REPLACE PROCEDURE leave_next_7
+-- 	(id integer,
+-- 	s_date DATE)
+-- AS $$
+-- BEGIN
+-- 	DELETE FROM sessions s WHERE (s.book_id = id AND s.sdate >= s_date AND s.sdate <= s_date + 7);
+
+-- 	UPDATE sessions
+-- 	SET cap = OLD.cap - 1
+-- 	FROM sessions s, session_part sp 
+-- 	WHERE sp.eid = id
+-- 	AND s.stime = sp.stime
+-- 	AND s.sdate = sp.sdate
+-- 	AND s.room = sp.room
+-- 	AND s.floor = sp.floor
+-- 	AND s.sdate >= s_date
+-- 	AND s.sdate <= s_date + 7;
+	
+-- 	DELETE FROM session_part sp WHERE (sp.eid = id AND sp.sdate >= s_date AND sp.sdate <= s_date + 7); 
+-- END;
+-- $$ 
+-- LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION contact_tracing 
+	(id integer)
+RETURNS TABLE (Eid integer)
+AS $$
+BEGIN
+	WITH closeContact AS
+		(SELECT DISTINCT sp2.eid AS eid
+		FROM session_part sp, session_part sp2
+		WHERE sp.eid = id
+		AND sp2.eid <> id
+		AND sp2.stime = sp.stime
+		AND sp2.sdate = sp.sdate
+		AND sp2.room = sp.room
+		AND sp2.floor = sp.floor
+		AND sp.sdate > CURRENT_DATE -3)
+
+	-- Delete meetings which were booked
+	DELETE FROM sessions s WHERE (s.book_id = closeContact.id AND s.sdate >= s_date AND s.sdate <= s_date + 7);
+
+	-- Remove meetings participating
+	UPDATE sessions
+	SET cap = OLD.cap - 1
+	FROM sessions s, session_part sp, closeContact cc
+	WHERE sp.eid = cc.eid
+	AND s.stime = sp.stime
+	AND s.sdate = sp.sdate
+	AND s.room = sp.room
+	AND s.floor = sp.floor
+	AND s.sdate >= CURRENT_DATE
+	AND s.sdate <= CURRENT_DATE + 7;
+	
+	DELETE FROM session_part sp WHERE (sp.eid = id AND sp.sdate >= s_date AND sp.sdate <= s_date + 7); 
+	
+	-- add to quarantine
+	UPDATE employees SET qe_date = CURRENT_DATE + 7 FROM closeContact cc, employees e WHERE cc.eid = e.eid;
+	UPDATE employees SET qe_date = CURRENT_DATE + 7 FROM employees e WHERE id = e.eid;
+
+
+
+	RETURN QUERY SELECT cc.eid FROM closeContact;
+	
+END;
+$$
+LANGUAGE plpgsql;
