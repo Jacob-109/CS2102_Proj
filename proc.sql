@@ -170,3 +170,165 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql;
+
+-- Join meeting 
+CREATE OR REPLACE PROCEDURE join_meeting
+	(j_floor integer,
+	j_room integer,
+	j_sdate DATE,
+	j_stime time,
+	j_etime time,
+	j_eid integer
+	)
+AS $$
+BEGIN
+	WHILE j_stime < j_etime LOOP
+		IF EXISTS (SELECT 1 FROM sessions s
+			WHERE s.floor = j_floor 
+			AND s.room = j_room 
+			AND s.sdate = j_sdate
+			AND s.stime = j_stime 
+			AND s.approve_id IS NULL
+			AND s.curr_cap < (SELECT new_cap FROM mr_update m WHERE m.floor = j_floor AND m.room = j_room))
+		THEN
+			INSERT INTO session_part VALUES (j_stime, j_sdate, j_room, j_floor, j_eid);
+			/*UPDATE sessions s SET curr_cap = curr_cap + 1
+				WHERE s.floor = j_floor AND s.room = j_room AND s.sdate = j_sdate
+					AND s.stime = j_stime AND s.approve_id IS NULL;*/
+			j_stime := j_stime + interval '1 hour';
+		ELSE
+			j_stime := j_stime + interval '1 hour';
+		END IF;
+	END LOOP;
+END
+$$
+LANGUAGE plpgsql;
+
+CALL join_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
+
+--Leave meeting
+CREATE OR REPLACE PROCEDURE leave_meeting
+	(l_floor integer,
+	l_room integer,
+	l_sdate DATE,
+	l_stime time,
+	l_etime time,
+	l_eid integer
+	)
+AS $$
+BEGIN
+	IF EXISTS(SELECT * FROM session_part sp INNER JOIN sessions s 
+		ON sp.floor = s.floor 
+		AND sp.room = s.room 
+		AND sp.sdate = s.sdate 
+		AND sp.stime = s.stime
+			WHERE s.floor = l_floor 
+			AND s.room = l_room 
+			AND s.sdate = l_sdate
+			AND (s.stime >= l_stime AND s.stime < l_etime) 
+			AND sp.eid = l_eid
+			AND s.approve_id IS NULL)
+		THEN
+			DELETE FROM session_part sp 
+				WHERE sp.floor = l_floor 
+				AND sp.room = l_room 
+				AND sp.sdate = l_sdate
+				AND (sp.stime >= l_stime AND sp.stime < l_etime) 
+				AND sp.eid = l_eid;
+				/*UPDATE sessions s SET curr_cap = curr_cap - 1
+					WHERE s.floor = l_floor AND s.room = l_room AND s.sdate = l_sdate
+						AND (s.stime >= l_stime AND s.stime < l_etime);*/
+	END IF;
+END
+$$
+LANGUAGE plpgsql;
+
+--Approve meeting
+CREATE OR REPLACE PROCEDURE approve_meeting
+	(a_floor integer,
+	a_room integer,
+	a_sdate DATE,
+	a_stime time,
+	a_etime time,
+	a_eid integer
+	)
+AS $$
+BEGIN
+	IF EXISTS (SELECT 1 FROM sessions s
+		WHERE s.floor = a_floor 
+		AND s.room = a_room 
+		AND s.sdate = a_sdate
+		AND (s.stime >= a_stime AND s.stime < a_etime) 
+		AND s.approve_id IS NULL)
+		AND EXISTS (SELECT * from employees e INNER JOIN meetingRooms m ON e.did = m.did
+			WHERE e.eid = eid AND e.kind = 2 AND m.floor = floor AND m.room = room AND m.did = e.did)
+		THEN
+			UPDATE sessions s SET approve_id = a_eid
+				WHERE s.floor = a_floor 
+				AND s.room = a_room 
+				AND s.sdate = a_sdate
+				AND (s.stime >= a_stime AND s.stime < a_etime) 
+				AND s.approve_id IS NULL;
+	END IF;
+END
+$$
+LANGUAGE plpgsql;
+
+CALL approve_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
+
+-- View Future Meeting
+CREATE OR REPLACE FUNCTION view_future_meeting (f_sdate date, f_eid integer)
+RETURNS TABLE(Floor_Number INT,Room_Number INT, Date DATE, Start_hour time) AS $$
+SELECT floor ,room, sdate, stime
+FROM session_part sp
+WHERE sp.eid = f_eid
+AND sp.sdate >= f_sdate;
+$$ LANGUAGE sql;
+
+-- View Booking report (WIP for approve_id)
+CREATE OR REPLACE FUNCTION view_booking_report (b_sdate date, b_eid integer)
+RETURNS TABLE(Floor_Number INT,Room_Number INT, Date DATE, Start_hour time, isApproved VARCHAR(5)) AS $$
+SELECT floor ,room, sdate, stime,
+case COALESCE(approve_id, -1) 
+when -1 then 'False'
+else 'True'
+END
+FROM sessions s
+WHERE s.book_id = b_eid
+AND s.sdate >= b_sdate;
+
+$$ LANGUAGE sql;
+
+select * from view_booking_report('2020-10-10',1);
+
+-- Trigger to update capacity of sessions 
+DROP TRIGGER IF EXISTS capacity_changed ON session_part;
+CREATE OR REPLACE FUNCTION update_capacity()
+RETURNS TRIGGER
+AS $$
+BEGIN
+	IF (TG_OP = 'INSERT') THEN 
+		UPDATE sessions 
+		SET curr_cap = curr_cap + 1
+		WHERE stime = NEW.stime 
+		AND sdate = NEW.sdate
+		AND room = NEW.room
+		AND floor = NEW.floor;
+		RETURN NULL;
+	ELSIF (TG_OP = 'DELETE') THEN 
+		UPDATE sessions 
+		SET curr_cap = curr_cap - 1
+		WHERE stime = OLD.stime 
+		AND sdate = OLD.sdate
+		AND room = OLD.room
+		AND floor = OLD.floor;
+		RETURN NULL;
+	END IF;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER capacity_changed
+AFTER INSERT OR DELETE ON session_part
+FOR EACH ROW EXECUTE function update_capacity();
+
