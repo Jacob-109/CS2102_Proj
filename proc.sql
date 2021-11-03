@@ -222,7 +222,7 @@ BEGIN
 	END IF;
 
 	WHILE (tempTime < endTime) LOOP
-		INSERT INTO sessions (book_id , stime, sdate, room, floor, curr_cap, approve_id) values (booker_eid,tempTime,booking_date,room_num,floor_num,1,NULL);  
+		INSERT INTO sessions (book_id , stime, sdate, room, floor, curr_cap, approve_id) values (booker_eid,tempTime,booking_date,room_num,floor_num,0,NULL);  
 		INSERT INTO session_part (stime, sdate, room, floor, eid) VALUES (tempTime, booking_date, room_num, floor_num, booker_eid);
 		tempTime := tempTime + interval '1' hour;
 	END LOOP;		
