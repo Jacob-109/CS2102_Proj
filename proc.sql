@@ -277,9 +277,20 @@ CREATE OR REPLACE PROCEDURE join_meeting
 	j_eid integer
 	)
 AS $$
+DECLARE
+hasFever BOOLEAN;
 BEGIN
+	SELECT EXISTS (
+	SELECT fever from health_declaration hd
+	WHERE eid = j_eid
+	AND ddate > CURRENT_DATE - integer '6'
+	AND ddate <= CURRENT_DATE
+	AND fever = TRUE)
+	INTO hasFever;
+
 	WHILE j_stime < j_etime LOOP
-		IF EXISTS (SELECT 1 FROM sessions s
+		IF  hasFever = 0 AND
+			EXISTS (SELECT 1 FROM sessions s
 			WHERE s.floor = j_floor 
 			AND s.room = j_room 
 			AND s.sdate = j_sdate
@@ -299,8 +310,6 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql;
-
-CALL join_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
 
 --Leave meeting
 CREATE OR REPLACE PROCEDURE leave_meeting
@@ -370,7 +379,6 @@ END
 $$
 LANGUAGE plpgsql;
 
-CALL approve_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
 
 -- View Future Meeting
 CREATE OR REPLACE FUNCTION view_future_meeting (f_sdate date, f_eid integer)
@@ -395,10 +403,8 @@ AND s.sdate >= b_sdate;
 
 $$ LANGUAGE sql;
 
-select * from view_booking_report('2020-10-10',1);
-
 -- Trigger to update capacity of sessions 
-DROP TRIGGER IF EXISTS capacity_changed ON session_part;
+DROP TRIGGER IF EXISTS curr_capacity_changed ON session_part;
 CREATE OR REPLACE FUNCTION update_capacity()
 RETURNS TRIGGER
 AS $$
@@ -424,7 +430,40 @@ END;
 $$
 LANGUAGE plpgsql;
 
-CREATE TRIGGER capacity_changed
+CREATE TRIGGER curr_apacity_changed
 AFTER INSERT OR DELETE ON session_part
 FOR EACH ROW EXECUTE function update_capacity();
 
+
+CREATE OR REPLACE PROCEDURE change_capacity
+	(c_floor integer,
+	c_room integer,
+	c_capacity integer,
+	c_date DATE
+	)
+AS $$
+BEGIN
+		UPDATE mr_update
+		SET udate = c_date 
+		AND new_cap = c_capacity
+		WHERE m.floor = c_floor 
+		AND m.room = c_room ;
+END
+$$
+LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS max_capacity_changed ON mr_update;
+CREATE OR REPLACE FUNCTION update_sessions()
+RETURNS TRIGGER
+AS $$
+BEGIN
+	DELETE FROM sessions 
+	WHERE sdate >= NEW.udate
+	AND curr_cap > NEW.new_cap;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER max_capacity_changed
+AFTER UPDATE ON mr_update
+FOR EACH ROW EXECUTE function update_sessions();
