@@ -162,44 +162,6 @@ SELECT search_room(30,'2021-11-01','09:00:00', '10:00:00');
 
 
 
--- CREATE OR REPLACE PROCEDURE search_room
--- (IN capacity INTEGER,
--- 	IN intended_date DATE,
--- 	IN start_hr TIME,
--- 	IN end_hr TIME)
--- RETURNS TABLE (res_room INTEGER, res_floor INTEGER, res_did INTEGER, res_rname VARCHAR)
--- AS $$
--- BEGIN
--- 	IF (start_hr > end_hr) THEN
--- 		RAISE NOTICE 'Exception caught: Start hour cannot be more than end hour, No change made! ' 
--- 		RETURN;
--- 	END IF;
-	
--- 	RETURN QUERY
--- 		WITH capacity_time_check AS(
--- 			SELECT u.floor,u.room
--- 			FROM mr_update u INNER JOIN meetingRooms mr
---     			ON u.floor = mr.floor
---     			AND u.room = mr.room
--- 			WHERE new_cap > capacity
--- 			EXCEPT
--- 			SELECT s.floor, s.room  
--- 			FROM sessions s
--- 			WHERE sdate = intended_date
--- 			AND stime > start_hr
--- 			AND stime < end_hr
--- 			ORDER BY floor,room; 
--- 		)
--- 		SELECT ctc.floor, ctc.room, mr_did, mru_new
--- 		FROM capacity_time_check ctc 
--- 		INNER JOIN meetingRooms mr ON ctc.floor = mr.floor AND ctc.room = mr.room
--- 		INNER JOIN mr_update mru ON mru.floor = mr.floor AND mru.room = mr.room;
-
--- END;
--- $$
--- LANGUAGE plpgsql;
-
-
 /*
 * book room function books a room for the given 1hr time slot
 * Condition to check: Emp is a booker
