@@ -146,9 +146,9 @@ END;
 $$
 LANGUAGE plpgsql;
 
-SELECT * from meetingRooms;
+-- SELECT * from meetingRooms;
 
-SELECT add_room(100,100,'Heaven', 50, 2, '2021-11-01', 2);
+-- SELECT add_room(100,100,'Heaven', 50, 2, '2021-11-01', 2);
 
 -- kind 0,1,2
 
@@ -307,7 +307,7 @@ CREATE OR REPLACE FUNCTION search_room
 	END
 	$$ LANGUAGE plpgsql;
 
-SELECT search_room(30,'2021-11-01','09:00:00', '10:00:00');
+-- SELECT search_room(30,'2021-11-01','09:00:00', '10:00:00');
 
 
 
@@ -380,23 +380,23 @@ $$
 LANGUAGE plpgsql;
 
 
-CALL book_room(1,2,'2021-10-03','08:00:00','13:00:00' , 1);
+-- CALL book_room(1,2,'2021-10-03','08:00:00','13:00:00' , 1);
 
-SELECT * from sessions;
+-- SELECT * from sessions;
 
-SELECT * from session_part;
+-- SELECT * from session_part;
 
-DELETE FROM sessions 
-WHERE sdate = '2021-10-03';
+-- DELETE FROM sessions 
+-- WHERE sdate = '2021-10-03';
 
 
-SELECT * from health_declaration;
-DELETE from health_declaration
-WHERE eid = 1
-AND temp = 38.1;
+-- SELECT * from health_declaration;
+-- DELETE from health_declaration
+-- WHERE eid = 1
+-- AND temp = 38.1;
 
-SELECT fever FROM health_declaration c
-WHERE c.eid = 1 
+-- SELECT fever FROM health_declaration c
+-- WHERE c.eid = 1 
 
 /*
 * unbook room function unbooks a room for all timeslots within a range
@@ -440,8 +440,8 @@ END;
 $$
 LANGUAGE plpgsql;
 
-CALL unbook_room(1,2,'2021-10-03','08:00:00','13:00:00' , 1);
-SELECT * from sessions;
+-- CALL unbook_room(1,2,'2021-10-03','08:00:00','13:00:00' , 1);
+-- SELECT * from sessions;
 
 -- Join meeting 
 CREATE OR REPLACE PROCEDURE join_meeting
@@ -486,7 +486,7 @@ END
 $$
 LANGUAGE plpgsql;
 
-CALL join_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
+-- CALL join_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
 
 --Leave meeting
 CREATE OR REPLACE PROCEDURE leave_meeting
@@ -556,7 +556,7 @@ END
 $$
 LANGUAGE plpgsql;
 
-CALL approve_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
+-- CALL approve_meeting(1,1,'2021-11-01','08:00:00','09:00:00',1);
 
 -- View Future Meeting
 CREATE OR REPLACE FUNCTION view_future_meeting (f_sdate date, f_eid integer)
@@ -581,7 +581,7 @@ AND s.sdate >= b_sdate;
 
 $$ LANGUAGE sql;
 
-select * from view_booking_report('2020-10-10',1);
+-- select * from view_booking_report('2020-10-10',1);
 
 -- Trigger to update capacity of sessions 
 DROP TRIGGER IF EXISTS curr_capacity_changed ON session_part;
@@ -659,17 +659,17 @@ BEGIN
     WHERE e.eid = h.eid AND h.ddate >= s_date AND h.ddate <= e_date 
     GROUP BY e.eid 
     HAVING count(h.ddate) < (e_date - s_date +1) 
-    ORDER BY number_of_days DESC 
+    ORDER BY number_of_days DESC;
 END; 
 $$ LANGUAGE plpgsql; 
 
 -- view manager report
 CREATE OR REPLACE FUNCTION view_manager_report 
-    (s_date DATE, eid integer) 
+    (s_date DATE, id integer) 
 RETURNS TABLE (floor_number integer, room_number integer, date DATE, start_hour TIME, eid integer) AS $$ 
 BEGIN 
     SELECT s.floor, s.room, s.sdate, s.stime, s.approve_id 
     FROM employees e, sessions s 
-    WHERE eid = e.eid AND e.kind = 0 AND s.sdate >= s_date AND s.approve_id IS NULL 
+    WHERE id = e.eid AND e.kind = 0 AND s.sdate >= s_date AND s.approve_id IS NULL;
 END;
 $$ LANGUAGE plpgsql;
