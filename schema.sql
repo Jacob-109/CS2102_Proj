@@ -47,6 +47,7 @@ CREATE TABLE health_declaration (
    FOREIGN KEY (eid) REFERENCES employees (eid) ON UPDATE CASCADE
 );
 
+
 -- CREATE TABLE quarantine (
 --    eid integer PRIMARY KEY,
 --    edate DATE NOT NULL
